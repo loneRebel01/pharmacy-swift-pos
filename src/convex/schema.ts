@@ -244,6 +244,53 @@ const schema = defineSchema(
       createdAt: v.number(),
     })
       .index("by_type", ["type"]),
+
+    returns: defineTable({
+      returnNumber: v.string(),
+      returnType: v.string(), // "sales_return" or "purchase_return"
+      date: v.string(),
+      customerId: v.optional(v.id("customers")),
+      supplierId: v.optional(v.id("suppliers")),
+      originalInvoice: v.optional(v.string()),
+      subtotal: v.number(),
+      totalDiscount: v.optional(v.number()),
+      totalTax: v.optional(v.number()),
+      totalAmount: v.number(),
+      reason: v.optional(v.string()),
+      status: v.string(),
+      createdBy: v.optional(v.id("users")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_type", ["returnType"])
+      .index("by_date", ["date"])
+      .index("by_customer", ["customerId"])
+      .index("by_supplier", ["supplierId"]),
+
+    returnItems: defineTable({
+      returnId: v.id("returns"),
+      productId: v.id("products"),
+      productName: v.string(),
+      unit: v.string(),
+      quantity: v.number(),
+      purchasePrice: v.number(),
+      retailPrice: v.number(),
+      salePrice: v.number(),
+      cost: v.number(),
+      margin: v.number(),
+      marginPercent: v.number(),
+      discount: v.optional(v.number()),
+      extraDiscount: v.optional(v.number()),
+      taxPercent: v.optional(v.number()),
+      taxAmount: v.optional(v.number()),
+      netRate: v.number(),
+      total: v.number(),
+      batchNumber: v.optional(v.string()),
+      expiryDate: v.optional(v.string()),
+      barcode: v.optional(v.string()),
+    })
+      .index("by_return", ["returnId"])
+      .index("by_product", ["productId"]),
   },
   {
     schemaValidation: false,

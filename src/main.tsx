@@ -31,6 +31,7 @@ import ReportsPage from "./pages/Reports";
 import ShortcutsPage from "./pages/Shortcuts";
 import SettingsPage from "./pages/Settings";
 import HelpPage from "./pages/Help";
+import ReturnsPage from "./pages/Returns";
 
 function RouteLoading() {
   return (
@@ -109,6 +110,7 @@ function DashboardRoutes() {
         <Route path="products" element={<ProductsPage />} />
         <Route path="purchases" element={<PurchasesPage />} />
         <Route path="pos" element={<POSPage />} />
+        <Route path="returns" element={<ReturnsPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />
         <Route path="inventory" element={<InventoryPage />} />
