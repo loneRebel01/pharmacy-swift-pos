@@ -130,15 +130,27 @@
   }
   .nb-table {
     @apply w-full border-2 border-border;
+    border-collapse: separate;
+    border-spacing: 0;
   }
   .nb-table th {
     @apply bg-muted border-b-2 border-border px-3 py-2 text-left text-xs font-bold uppercase tracking-wider;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
   }
   .nb-table td {
     @apply border-b border-border px-3 py-2 text-sm;
+    white-space: nowrap;
+    vertical-align: middle;
   }
   .nb-table tr:hover td {
     @apply bg-muted/50;
+  }
+  .nb-table-wrap td {
+    white-space: normal;
+    word-break: break-word;
   }
   .nb-sidebar-item {
     @apply flex items-center gap-3 px-3 py-2 text-sm font-semibold
