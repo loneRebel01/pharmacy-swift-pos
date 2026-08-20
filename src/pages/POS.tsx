@@ -24,6 +24,7 @@ interface SaleItem {
   unit: string;
   quantity: number;
   retailPrice: number;
+  purchasePrice: number;
   salePrice: number;
   discount: number;
   extraDiscount: number;
@@ -36,6 +37,26 @@ interface SaleItem {
   batchNumber: string;
   expiryDate: string;
 }
+
+function recalcItem(item: SaleItem): SaleItem {
+  const sub = item.salePrice * item.quantity;
+  const taxAmt = (sub * item.taxPercent) / 100;
+  const finalTotal = sub - item.discount - item.extraDiscount + taxAmt;
+  const cost = item.purchasePrice * item.quantity;
+  const margin = finalTotal - cost;
+  const marginPercent = finalTotal > 0 ? (margin / finalTotal) * 100 : 0;
+  return {
+    ...item,
+    taxAmount: taxAmt,
+    total: finalTotal,
+    netRate: item.quantity > 0 ? finalTotal / item.quantity : item.salePrice,
+    margin,
+    marginPercent,
+  };
+}
+
+// Editable cell column keys
+type EditableCol = "quantity" | "salePrice" | "discount" | "taxPercent";
 
 export default function POS() {
   const products = useQuery(api.products.list);
@@ -65,6 +86,11 @@ export default function POS() {
   const [items, setItems] = useState<SaleItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+
+  // Cell editing state
+  const [editingCell, setEditingCell] = useState<{ row: number; col: EditableCol } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const cellInputRef = useRef<HTMLInputElement>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
@@ -107,34 +133,29 @@ export default function POS() {
     const qty = parseInt(qtyValue) || 1;
     const salePrice = selectedProduct.retailPrice;
     const taxP = selectedProduct.tax ?? 0;
-    const taxAmt = (salePrice * qty * taxP) / 100;
     const discountAmt = selectedProduct.discount ?? 0;
-    const total = salePrice * qty;
-    const finalTotal = total - discountAmt + taxAmt;
-    const margin = (salePrice - selectedProduct.purchasePrice) * qty;
-    const marginPercent = selectedProduct.purchasePrice > 0
-      ? ((salePrice - selectedProduct.purchasePrice) / selectedProduct.purchasePrice) * 100
-      : 0;
 
-    const newItem: SaleItem = {
+    const rawItem: SaleItem = {
       productId: selectedProduct._id,
       productName: selectedProduct.name,
       unit: selectedProduct.unit,
       quantity: qty,
       retailPrice: selectedProduct.retailPrice,
+      purchasePrice: selectedProduct.purchasePrice,
       salePrice,
       discount: discountAmt,
       extraDiscount: 0,
       taxPercent: taxP,
-      taxAmount: taxAmt,
-      margin,
-      marginPercent,
-      total: finalTotal,
-      netRate: qty > 0 ? finalTotal / qty : salePrice,
+      taxAmount: 0,
+      margin: 0,
+      marginPercent: 0,
+      total: 0,
+      netRate: 0,
       batchNumber: selectedProduct.batchNumber ?? "",
       expiryDate: selectedProduct.expiryDate ?? "",
     };
 
+    const newItem = recalcItem(rawItem);
     setItems((prev) => [...prev, newItem]);
     setSelectedProduct(null);
     setShowQty(false);
@@ -146,6 +167,79 @@ export default function POS() {
   const removeItem = useCallback((idx: number) => {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }, []);
+
+  // Cell editing helpers
+  const startEditing = useCallback((row: number, col: EditableCol) => {
+    const item = items[row];
+    if (!item) return;
+    let val: string;
+    switch (col) {
+      case "quantity": val = String(item.quantity); break;
+      case "salePrice": val = String(item.salePrice); break;
+      case "discount": val = String(item.discount); break;
+      case "taxPercent": val = String(item.taxPercent); break;
+    }
+    setEditingCell({ row, col });
+    setEditValue(val);
+    setTimeout(() => cellInputRef.current?.focus(), 0);
+  }, [items]);
+
+  const commitEdit = useCallback(() => {
+    if (!editingCell) return;
+    const numVal = parseFloat(editValue) || 0;
+    setItems((prev) => {
+      const updated = [...prev];
+      const item = { ...updated[editingCell.row] };
+      switch (editingCell.col) {
+        case "quantity": item.quantity = Math.max(1, Math.round(numVal)); break;
+        case "salePrice": item.salePrice = numVal; break;
+        case "discount": item.discount = numVal; break;
+        case "taxPercent": item.taxPercent = numVal; break;
+      }
+      updated[editingCell.row] = recalcItem(item);
+      return updated;
+    });
+    setEditingCell(null);
+    setEditValue("");
+  }, [editingCell, editValue]);
+
+  const cancelEdit = useCallback(() => {
+    setEditingCell(null);
+    setEditValue("");
+    searchRef.current?.focus();
+  }, []);
+
+  // Table keyboard navigation
+  const editableCols: EditableCol[] = ["quantity", "salePrice", "discount", "taxPercent"];
+
+  const handleCellKeyDown = useCallback((e: React.KeyboardEvent, row: number, col: EditableCol) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEdit();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      commitEdit();
+      const colIdx = editableCols.indexOf(col);
+      if (e.shiftKey) {
+        if (colIdx > 0) {
+          setTimeout(() => startEditing(row, editableCols[colIdx - 1]), 0);
+        } else if (row > 0) {
+          setTimeout(() => startEditing(row - 1, editableCols[editableCols.length - 1]), 0);
+        }
+      } else {
+        if (colIdx < editableCols.length - 1) {
+          setTimeout(() => startEditing(row, editableCols[colIdx + 1]), 0);
+        } else if (row < items.length - 1) {
+          setTimeout(() => startEditing(row + 1, editableCols[0]), 0);
+        } else {
+          searchRef.current?.focus();
+        }
+      }
+    }
+  }, [commitEdit, cancelEdit, startEditing, items.length]);
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
@@ -379,6 +473,7 @@ export default function POS() {
     setSearchTerm("");
     setShowQty(false);
     setSelectedProduct(null);
+    setEditingCell(null);
   }, []);
 
   return (
@@ -505,7 +600,9 @@ export default function POS() {
                   <th className="text-right">Qty</th>
                   <th className="text-right">Price</th>
                   <th className="text-right">Disc</th>
-                  <th className="text-right">Tax</th>
+                  <th className="text-right">Tax%</th>
+                  <th className="text-right">Tax Amt</th>
+                  <th className="text-right">Margin</th>
                   <th className="text-right">Total</th>
                   <th className="w-8"></th>
                 </tr>
@@ -513,7 +610,7 @@ export default function POS() {
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                    <td colSpan={10} className="text-center py-12 text-muted-foreground">
                       <ShoppingCartIcon className="size-8 mx-auto mb-2 opacity-30" />
                       <p className="text-sm">Scan barcode or search to add products</p>
                       <p className="text-[10px] mt-1 font-mono">Ctrl+F to search | Ctrl+H to hold</p>
@@ -521,13 +618,109 @@ export default function POS() {
                   </tr>
                 ) : (
                   items.map((item, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className={editingCell?.row === idx ? "bg-accent/30" : ""}>
                       <td className="text-xs">{idx + 1}</td>
                       <td className="font-semibold text-xs">{item.productName}</td>
-                      <td className="text-right text-xs">{item.quantity}</td>
-                      <td className="text-right text-xs">PKR {item.salePrice.toFixed(2)}</td>
-                      <td className="text-right text-xs">{item.discount.toFixed(2)}</td>
-                      <td className="text-right text-xs">{item.taxPercent}%</td>
+                      {/* Qty */}
+                      <td className="text-right text-xs">
+                        {editingCell?.row === idx && editingCell.col === "quantity" ? (
+                          <input
+                            ref={cellInputRef}
+                            type="number"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(e, idx, "quantity")}
+                            onBlur={() => commitEdit()}
+                            className="nb-input text-xs w-16 text-right p-1 h-6"
+                            autoFocus
+                            min="1"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-accent px-1 inline-block min-w-[2rem]"
+                            onClick={() => startEditing(idx, "quantity")}
+                            title="Click or press Enter to edit"
+                          >
+                            {item.quantity}
+                          </span>
+                        )}
+                      </td>
+                      {/* Price */}
+                      <td className="text-right text-xs">
+                        {editingCell?.row === idx && editingCell.col === "salePrice" ? (
+                          <input
+                            ref={cellInputRef}
+                            type="number"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(e, idx, "salePrice")}
+                            onBlur={() => commitEdit()}
+                            className="nb-input text-xs w-20 text-right p-1 h-6"
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-accent px-1 inline-block"
+                            onClick={() => startEditing(idx, "salePrice")}
+                            title="Click or press Enter to edit"
+                          >
+                            {item.salePrice.toFixed(2)}
+                          </span>
+                        )}
+                      </td>
+                      {/* Discount */}
+                      <td className="text-right text-xs">
+                        {editingCell?.row === idx && editingCell.col === "discount" ? (
+                          <input
+                            ref={cellInputRef}
+                            type="number"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(e, idx, "discount")}
+                            onBlur={() => commitEdit()}
+                            className="nb-input text-xs w-16 text-right p-1 h-6"
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-accent px-1 inline-block"
+                            onClick={() => startEditing(idx, "discount")}
+                            title="Click or press Enter to edit"
+                          >
+                            {item.discount.toFixed(2)}
+                          </span>
+                        )}
+                      </td>
+                      {/* Tax % */}
+                      <td className="text-right text-xs">
+                        {editingCell?.row === idx && editingCell.col === "taxPercent" ? (
+                          <input
+                            ref={cellInputRef}
+                            type="number"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(e, idx, "taxPercent")}
+                            onBlur={() => commitEdit()}
+                            className="nb-input text-xs w-14 text-right p-1 h-6"
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:bg-accent px-1 inline-block"
+                            onClick={() => startEditing(idx, "taxPercent")}
+                            title="Click or press Enter to edit"
+                          >
+                            {item.taxPercent}%
+                          </span>
+                        )}
+                      </td>
+                      {/* Tax Amount (computed, read-only) */}
+                      <td className="text-right text-xs">{item.taxAmount.toFixed(2)}</td>
+                      {/* Margin (computed, read-only) */}
+                      <td className={`text-right text-xs font-semibold ${item.margin >= 0 ? "text-green-700" : "text-destructive"}`}>
+                        {item.margin.toFixed(2)}
+                      </td>
+                      {/* Total */}
                       <td className="text-right text-xs font-bold">PKR {item.total.toFixed(2)}</td>
                       <td>
                         <button
