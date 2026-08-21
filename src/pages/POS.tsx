@@ -456,11 +456,14 @@ export default function POS() {
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, row: number, col: EditableCol) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
       commitEdit();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       cancelEdit();
     } else if (e.key === "Tab") {
+      e.stopPropagation();
       e.preventDefault();
       commitEdit();
       const colIdx = editableCols.indexOf(col);
@@ -495,6 +498,7 @@ export default function POS() {
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.stopPropagation();
         setShowResults(false);
         setSearchTerm("");
         setShowQty(false);
@@ -503,16 +507,19 @@ export default function POS() {
       }
       if (e.key === "ArrowDown" && showResults) {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedResultIdx((prev) => Math.min(prev + 1, searchResults.length - 1));
         return;
       }
       if (e.key === "ArrowUp" && showResults) {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedResultIdx((prev) => Math.max(prev - 1, 0));
         return;
       }
       if (e.key === "Enter" && showResults && searchResults[selectedResultIdx]) {
         e.preventDefault();
+        e.stopPropagation();
         selectProduct(searchResults[selectedResultIdx]);
         return;
       }

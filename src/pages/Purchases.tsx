@@ -396,6 +396,7 @@ export default function Purchases() {
     (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        e.stopPropagation();
         editHandledRef.current = true;
         updateItemField(rowIdx, TABLE_COLS[colIdx].key, editValue);
         // Move to next row, same column
@@ -410,6 +411,7 @@ export default function Purchases() {
         }
       } else if (e.key === "Tab") {
         e.preventDefault();
+        e.stopPropagation();
         editHandledRef.current = true;
         updateItemField(rowIdx, TABLE_COLS[colIdx].key, editValue);
         const nextCol = findNextEditableCol(
@@ -420,6 +422,7 @@ export default function Purchases() {
         setEditValue(getCellValue(items[rowIdx], TABLE_COLS[nextCol].key));
       } else if (e.key === "Escape") {
         e.preventDefault();
+        e.stopPropagation();
         editHandledRef.current = true;
         setEditingCell(null);
         setEditValue("");
@@ -448,22 +451,27 @@ export default function Purchases() {
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
         const nextRow = Math.min(row + 1, items.length - 1);
         setSelectedCell({ row: nextRow, col });
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         const prevRow = Math.max(row - 1, 0);
         setSelectedCell({ row: prevRow, col });
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
+        e.stopPropagation();
         const nextCol = findNextEditableCol(col, 1);
         setSelectedCell({ row, col: nextCol });
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
+        e.stopPropagation();
         const prevCol = findNextEditableCol(col, -1);
         setSelectedCell({ row, col: prevCol });
       } else if (e.key === "Enter") {
         e.preventDefault();
+        e.stopPropagation();
         if (selectedCell && TABLE_COLS[selectedCell.col].editable) {
           handleCellClick(selectedCell.row, selectedCell.col);
         }
@@ -515,12 +523,14 @@ export default function Purchases() {
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.stopPropagation();
         setShowResults(false);
         setSearchTerm("");
         return;
       }
       if (e.key === "ArrowDown" && showResults) {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedResultIdx((prev) =>
           Math.min(prev + 1, searchResults.length - 1)
         );
@@ -528,11 +538,13 @@ export default function Purchases() {
       }
       if (e.key === "ArrowUp" && showResults) {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedResultIdx((prev) => Math.max(prev - 1, 0));
         return;
       }
       if (e.key === "Enter" && showResults && searchResults[selectedResultIdx]) {
         e.preventDefault();
+        e.stopPropagation();
         selectProduct(searchResults[selectedResultIdx]);
         return;
       }
