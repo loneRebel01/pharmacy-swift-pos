@@ -6,10 +6,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export default function Settings() {
-  const [pharmacyName, setPharmacyName] = useState("Free Buff Pharmacy");
-  const [phone, setPhone] = useState("0300-1234567");
-  const [address, setAddress] = useState("Main Street, City");
-  const [receiptWidth, setReceiptWidth] = useState("80mm");
+  const [pharmacyName, setPharmacyName] = useState(() => localStorage.getItem("pharmacy_name") || "Free Buff Pharmacy");
+  const [phone, setPhone] = useState(() => localStorage.getItem("pharmacy_phone") || "0300-1234567");
+  const [address, setAddress] = useState(() => localStorage.getItem("pharmacy_address") || "Main Street, City");
+  const [receiptWidth, setReceiptWidth] = useState(() => localStorage.getItem("receipt_width") || "80mm");
 
   const handleSave = () => {
     localStorage.setItem("pharmacy_name", pharmacyName);
