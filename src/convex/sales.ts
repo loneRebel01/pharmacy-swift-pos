@@ -67,6 +67,7 @@ export const create = mutation({
         marginPercent: v.optional(v.number()),
         total: v.number(),
         netRate: v.number(),
+        purchasePrice: v.optional(v.number()),
         batchNumber: v.optional(v.string()),
         expiryDate: v.optional(v.string()),
       })
