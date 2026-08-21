@@ -78,6 +78,7 @@ export const create = mutation({
     const saleId = await ctx.db.insert("sales", {
       ...saleData,
       status: "completed",
+      items: items,
       createdBy: undefined,
       createdAt: now,
       updatedAt: now,

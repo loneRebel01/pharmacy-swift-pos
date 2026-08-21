@@ -15,6 +15,8 @@ import {
   X,
   CreditCard,
   Banknote,
+  History,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +59,245 @@ function recalcItem(item: SaleItem): SaleItem {
 
 // Editable cell column keys
 type EditableCol = "quantity" | "salePrice" | "discount" | "taxPercent";
+
+// Read pharmacy settings from localStorage
+function getPharmacySettings() {
+  return {
+    name: localStorage.getItem("pharmacy_name") || "Free Buff Pharmacy",
+    phone: localStorage.getItem("pharmacy_phone") || "0300-1234567",
+    address: localStorage.getItem("pharmacy_address") || "Main Street, City",
+    receiptWidth: localStorage.getItem("receipt_width") || "80mm",
+  };
+}
+
+// Receipt HTML generator — supports 58mm, 80mm, and A4
+function generateReceiptHTML(data: {
+  invoiceNumber: string;
+  date: string;
+  cashierName?: string;
+  items: SaleItem[];
+  subtotal: number;
+  totalDiscount: number;
+  totalTax: number;
+  grandTotal: number;
+  cashReceived: number;
+  change: number;
+  paymentMethod: string;
+  customerName?: string;
+}) {
+  const settings = getPharmacySettings();
+  const widthMap: Record<string, string> = {
+    "58mm": "58mm",
+    "80mm": "80mm",
+    A4: "210mm",
+  };
+  const maxWidth = widthMap[settings.receiptWidth] || "80mm";
+  const isA4 = settings.receiptWidth === "A4";
+
+  const itemRows = data.items
+    .map(
+      (item) => `
+    <tr>
+      <td style="padding:4px 6px;border-bottom:1px dashed #ccc;white-space:nowrap;">${item.productName}</td>
+      <td style="padding:4px 6px;border-bottom:1px dashed #ccc;text-align:right;white-space:nowrap;">${item.quantity}</td>
+      <td style="padding:4px 6px;border-bottom:1px dashed #ccc;text-align:right;white-space:nowrap;">${item.salePrice.toFixed(2)}</td>
+      ${item.discount > 0 ? `<td style="padding:4px 6px;border-bottom:1px dashed #ccc;text-align:right;white-space:nowrap;">-${item.discount.toFixed(2)}</td>` : `<td style="padding:4px 6px;border-bottom:1px dashed #ccc;text-align:right;">—</td>`}
+      <td style="padding:4px 6px;border-bottom:1px dashed #ccc;text-align:right;white-space:nowrap;font-weight:bold;">${item.total.toFixed(2)}</td>
+    </tr>`
+    )
+    .join("");
+
+  // Simple line-by-line format for thermal printers
+  const thermalItems = data.items
+    .map(
+      (item) =>
+        `${item.productName.substring(0, isA4 ? 40 : 24).padEnd(isA4 ? 40 : 24)}${String(item.quantity).padStart(3)} ${item.total.toFixed(2).padStart(10)}`
+    )
+    .join("\n");
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<title>Receipt - ${data.invoiceNumber}</title>
+<style>
+  @media print {
+    @page { margin: 0; size: auto; }
+    body { margin: 0; padding: 0; }
+    .no-print { display: none !important; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', 'Consolas', monospace;
+    margin: 0;
+    padding: 10px;
+    font-size: ${isA4 ? "12px" : "11px"};
+    line-height: 1.4;
+    color: #000;
+    background: #fff;
+  }
+  .receipt {
+    max-width: ${maxWidth};
+    margin: 0 auto;
+    padding: 8px;
+  }
+  .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
+  .header h2 { margin: 0 0 2px 0; font-size: ${isA4 ? "18px" : "14px"}; }
+  .header p { margin: 1px 0; font-size: ${isA4 ? "11px" : "10px"}; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  th { text-align: left; border-bottom: 2px solid #000; padding: 4px 6px; font-size: ${isA4 ? "11px" : "9px"}; text-transform: uppercase; }
+  td { font-size: ${isA4 ? "11px" : "10px"}; }
+  .line { border-top: 1px dashed #000; margin: 6px 0; }
+  .totals { margin-top: 6px; }
+  .totals div { display: flex; justify-content: space-between; padding: 2px 0; font-size: ${isA4 ? "12px" : "10px"}; }
+  .grand-total { font-size: ${isA4 ? "16px" : "13px"}; font-weight: bold; border-top: 2px solid #000; padding-top: 4px; margin-top: 6px; }
+  .footer { text-align: center; margin-top: 12px; padding-top: 8px; border-top: 2px dashed #000; font-size: ${isA4 ? "11px" : "9px"}; }
+  .print-btn { display: block; margin: 20px auto; padding: 10px 24px; font-size: 14px; cursor: pointer; border: 2px solid #000; background: #fff; }
+  .print-btn:hover { background: #f0f0f0; }
+</style>
+</head>
+<body>
+<div class="no-print" style="text-align:center;margin-bottom:10px;">
+  <button class="print-btn" onclick="window.print();">🖨️ Print Receipt</button>
+</div>
+<div class="receipt">
+  <div class="header">
+    <h2>${settings.name.toUpperCase()}</h2>
+    <p>${settings.address}</p>
+    <p>Phone: ${settings.phone}</p>
+    <div class="line"></div>
+    <p><strong>Invoice: ${data.invoiceNumber}</strong></p>
+    <p>Date: ${data.date}</p>
+    ${data.customerName ? `<p>Customer: ${data.customerName}</p>` : ""}
+    <p>Payment: ${data.paymentMethod.toUpperCase()}</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:right;">Qty</th>
+        <th style="text-align:right;">Price</th>
+        <th style="text-align:right;">Disc</th>
+        <th style="text-align:right;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemRows}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div><span>Subtotal:</span><span>PKR ${data.subtotal.toFixed(2)}</span></div>
+    ${data.totalDiscount > 0 ? `<div><span>Discount:</span><span>-PKR ${data.totalDiscount.toFixed(2)}</span></div>` : ""}
+    ${data.totalTax > 0 ? `<div><span>Tax:</span><span>PKR ${data.totalTax.toFixed(2)}</span></div>` : ""}
+    <div class="grand-total"><span>TOTAL:</span><span>PKR ${data.grandTotal.toFixed(2)}</span></div>
+  </div>
+
+  <div class="line"></div>
+
+  <div style="display:flex;justify-content:space-between;font-size:${isA4 ? "12px" : "10px"};">
+    <span>Cash Received: PKR ${data.cashReceived.toFixed(2)}</span>
+    ${data.change > 0 ? `<span>Change: PKR ${data.change.toFixed(2)}</span>` : ""}
+  </div>
+
+  <div class="footer">
+    <p><strong>Thank you for your purchase!</strong></p>
+    <p>Get well soon 🙏</p>
+    ${data.cashierName ? `<p>Cashier: ${data.cashierName}</p>` : ""}
+  </div>
+</div>
+
+<script>
+  // Auto-print on load (for popup/redirect scenarios)
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 300);
+  };
+</script>
+</body>
+</html>`;
+}
+
+// Print via hidden iframe — works without popup blockers
+function printViaIframe(html: string): boolean {
+  try {
+    // Remove any existing print iframe
+    const existing = document.getElementById("pos-print-frame") as HTMLIFrameElement | null;
+    if (existing) existing.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "pos-print-frame";
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      toast.error("Could not create print frame. Please try again.");
+      return false;
+    }
+
+    iframeDoc.open();
+    iframeDoc.write(html);
+    iframeDoc.close();
+
+    // Wait for content to render, then print
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        toast.error("Print failed. Please try again or use Ctrl+P.");
+      }
+      // Clean up iframe after printing
+      setTimeout(() => {
+        iframe.remove();
+      }, 2000);
+    }, 500);
+
+    return true;
+  } catch (err) {
+    toast.error(`Print error: ${String(err)}`);
+    return false;
+  }
+}
+
+// Build receipt data from a sale record (for reprint from history)
+function receiptDataFromSale(
+  sale: {
+    invoiceNumber: string;
+    date: string;
+    subtotal: number;
+    totalDiscount?: number;
+    totalTax?: number;
+    totalAmount: number;
+    cashReceived?: number;
+    changeReturned?: number;
+    paymentMethod: string;
+    notes?: string;
+  },
+  items: SaleItem[],
+  customerName?: string
+) {
+  return {
+    invoiceNumber: sale.invoiceNumber,
+    date: sale.date,
+    items,
+    subtotal: sale.subtotal,
+    totalDiscount: sale.totalDiscount ?? 0,
+    totalTax: sale.totalTax ?? 0,
+    grandTotal: sale.totalAmount,
+    cashReceived: sale.cashReceived ?? sale.totalAmount,
+    change: sale.changeReturned ?? 0,
+    paymentMethod: sale.paymentMethod,
+    customerName,
+  };
+}
 
 export default function POS() {
   const products = useQuery(api.products.list);
@@ -248,6 +489,9 @@ export default function POS() {
   const grandTotal = subtotal - totalDiscount + totalTax;
   const change = cashReceived > grandTotal ? cashReceived - grandTotal : 0;
 
+  // Build current items snapshot for print/save callbacks
+  const getCurrentItemsSnapshot = useCallback(() => [...items.map((i) => ({ ...i }))], [items]);
+
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -284,7 +528,7 @@ export default function POS() {
       }
       if (e.key === "P" && e.ctrlKey && e.shiftKey) {
         e.preventDefault();
-        handlePrint();
+        handlePrintCurrent();
         return;
       }
       if (e.key === "h" && e.ctrlKey) {
@@ -338,7 +582,7 @@ export default function POS() {
       }
       if (e.key === "P" && e.ctrlKey && e.shiftKey) {
         e.preventDefault();
-        handlePrint();
+        handlePrintCurrent();
       }
       if (e.key === "h" && e.ctrlKey) {
         e.preventDefault();
@@ -354,37 +598,134 @@ export default function POS() {
     return () => window.removeEventListener("keydown", handler);
   }, [items, removeItem]);
 
-  const handleSave = useCallback(async (method?: string) => {
+  // Get customer name by id
+  const getCustomerName = useCallback(
+    (cId: string) => {
+      if (!customers || !cId) return undefined;
+      const c = customers.find((c) => c._id === cId);
+      return c?.name;
+    },
+    [customers]
+  );
+
+  // Print current unsaved cart (for Ctrl+Shift+P / Print button)
+  const handlePrintCurrent = useCallback(() => {
     if (items.length === 0) {
-      toast.error("Add at least one product");
+      toast.error("No items to print. Add products first.");
       return;
     }
-    const payMethod = method || paymentMethod;
-    const now = new Date();
-    const invNum = `SALE-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(Math.floor(Math.random() * 1000)).padStart(3, "0")}`;
-    try {
-      await createSale({
-        customerId: (customerId || undefined) as Id<"customers"> | undefined,
-        invoiceNumber: invNum,
-        date: now.toISOString().split("T")[0],
-        paymentMethod: payMethod,
-        subtotal,
-        totalDiscount: totalDiscount || undefined,
-        totalTax: totalTax || undefined,
-        totalAmount: grandTotal,
-        cashReceived: payMethod === "cash" ? cashReceived : undefined,
-        changeReturned: payMethod === "cash" ? change : undefined,
-        notes: notes || undefined,
-        items,
+    const snapshot = getCurrentItemsSnapshot();
+    const invNum = `PREVIEW-${Date.now()}`;
+    const html = generateReceiptHTML({
+      invoiceNumber: invNum,
+      date: new Date().toLocaleString(),
+      items: snapshot,
+      subtotal,
+      totalDiscount,
+      totalTax,
+      grandTotal,
+      cashReceived: cashReceived || grandTotal,
+      change,
+      paymentMethod,
+      customerName: getCustomerName(customerId),
+    });
+    const ok = printViaIframe(html);
+    if (ok) toast.info("Print preview opened. Use the Print button in the preview to print.");
+  }, [items, subtotal, totalDiscount, totalTax, grandTotal, cashReceived, change, paymentMethod, customerId, getCustomerName, getCurrentItemsSnapshot]);
+
+  // Reprint a saved sale from history
+  const handleReprint = useCallback(
+    (sale: NonNullable<typeof saleList>[number]) => {
+      // sale.items are the convex-stored items — they should contain the same structure
+      const saleItems = (sale.items ?? []) as SaleItem[];
+      if (saleItems.length === 0) {
+        toast.error("No items found for this sale.");
+        return;
+      }
+      const custName = sale.customerId ? getCustomerName(sale.customerId) : undefined;
+      const html = generateReceiptHTML({
+        invoiceNumber: sale.invoiceNumber,
+        date: sale.date,
+        items: saleItems,
+        subtotal: sale.subtotal,
+        totalDiscount: sale.totalDiscount ?? 0,
+        totalTax: sale.totalTax ?? 0,
+        grandTotal: sale.totalAmount,
+        cashReceived: sale.cashReceived ?? sale.totalAmount,
+        change: sale.changeReturned ?? 0,
+        paymentMethod: sale.paymentMethod,
+        customerName: custName,
       });
-      await logActivity({ action: "Sale created", module: "sales", details: invNum });
-      toast.success(`Sale saved! Invoice: ${invNum}`);
-      resetForm();
-      setShowPayment(false);
-    } catch (e) {
-      toast.error(String(e));
-    }
-  }, [items, customerId, paymentMethod, cashReceived, grandTotal, subtotal, totalDiscount, totalTax, change, notes, createSale, logActivity]);
+      const ok = printViaIframe(html);
+      if (ok) toast.success(`Reprint: ${sale.invoiceNumber}`);
+    },
+    [getCustomerName]
+  );
+
+  // Save sale — returns invoice number for optional printing
+  const handleSave = useCallback(
+    async (shouldPrint = false): Promise<string | null> => {
+      if (items.length === 0) {
+        toast.error("Add at least one product");
+        return null;
+      }
+      const snapshot = getCurrentItemsSnapshot();
+      const sub = subtotal;
+      const disc = totalDiscount;
+      const tax = totalTax;
+      const total = grandTotal;
+      const ch = change;
+      const payMethod = paymentMethod;
+      const custId = customerId;
+      const now = new Date();
+      const invNum = `SALE-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(Math.floor(Math.random() * 1000)).padStart(3, "0")}`;
+      try {
+        await createSale({
+          customerId: (custId || undefined) as Id<"customers"> | undefined,
+          invoiceNumber: invNum,
+          date: now.toISOString().split("T")[0],
+          paymentMethod: payMethod,
+          subtotal: sub,
+          totalDiscount: disc || undefined,
+          totalTax: tax || undefined,
+          totalAmount: total,
+          cashReceived: payMethod === "cash" ? cashReceived : undefined,
+          changeReturned: payMethod === "cash" ? ch : undefined,
+          notes: notes || undefined,
+          items: snapshot,
+        });
+        await logActivity({ action: "Sale created", module: "sales", details: invNum });
+        toast.success(`Sale saved! Invoice: ${invNum}`);
+
+        // Print AFTER save succeeds, using the captured snapshot
+        if (shouldPrint) {
+          const html = generateReceiptHTML({
+            invoiceNumber: invNum,
+            date: now.toLocaleString(),
+            items: snapshot,
+            subtotal: sub,
+            totalDiscount: disc,
+            totalTax: tax,
+            grandTotal: total,
+            cashReceived: payMethod === "cash" ? cashReceived : total,
+            change: ch,
+            paymentMethod: payMethod,
+            customerName: getCustomerName(custId),
+          });
+          const ok = printViaIframe(html);
+          if (ok) toast.success(`Invoice ${invNum} sent to printer.`);
+        }
+
+        resetFormInternal();
+        setShowPayment(false);
+        return invNum;
+      } catch (e) {
+        toast.error(`Save failed: ${String(e)}`);
+        return null;
+      }
+    },
+    [items, customerId, paymentMethod, cashReceived, grandTotal, subtotal, totalDiscount, totalTax, change, notes, createSale, logActivity, getCustomerName, getCurrentItemsSnapshot]
+  );
 
   const handleHold = useCallback(async () => {
     if (items.length === 0) {
@@ -412,59 +753,8 @@ export default function POS() {
     [removeHeld]
   );
 
-  const handlePrint = useCallback(() => {
-    const printContent = `
-      <html><head><title>Receipt</title>
-      <style>
-        body{font-family:'Courier New',monospace;font-size:11px;margin:10px;}
-        .receipt{max-width:80mm;margin:0 auto;}
-        .header{text-align:center;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px;}
-        table{width:100%;margin:6px 0;}
-        td{padding:2px 0;font-size:10px;}
-        .line{border-top:1px dashed #000;margin:6px 0;}
-        .total{text-align:right;font-weight:bold;font-size:13px;border-top:2px solid #000;padding-top:4px;margin-top:8px;}
-        .footer{text-align:center;margin-top:12px;font-size:9px;}
-      </style></head><body>
-      <div class="receipt">
-        <div class="header">
-          <h2 style="margin:0;">FREE BUFF PHARMACY</h2>
-          <p style="margin:2px 0;">Medical & General Store</p>
-          <p style="margin:2px 0;">Phone: 0300-1234567</p>
-          <p style="margin:2px 0;">Invoice: ${items.length > 0 ? "SALE-" + Date.now() : "N/A"}</p>
-          <p style="margin:2px 0;">Date: ${new Date().toLocaleString()}</p>
-        </div>
-        ${items.map((item) => `<div style="display:flex;justify-content:space-between;">
-          <span>${item.productName} x${item.quantity}</span>
-          <span>PKR ${item.total.toFixed(2)}</span>
-        </div>`).join("")}
-        <div class="line"></div>
-        <div class="total">
-          <div>Subtotal: PKR ${subtotal.toFixed(2)}</div>
-          ${totalDiscount > 0 ? `<div>Discount: -PKR ${totalDiscount.toFixed(2)}</div>` : ""}
-          ${totalTax > 0 ? `<div>Tax: PKR ${totalTax.toFixed(2)}</div>` : ""}
-          <div style="font-size:15px;margin-top:4px;">TOTAL: PKR ${grandTotal.toFixed(2)}</div>
-        </div>
-        <div class="line"></div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;">
-          <span>Cash Received: PKR ${(cashReceived || grandTotal).toFixed(2)}</span>
-          ${change > 0 ? `<span>Change: PKR ${change.toFixed(2)}</span>` : ""}
-        </div>
-        <div class="footer">
-          <p>Thank you for your purchase!</p>
-          <p>Get well soon 🙏</p>
-        </div>
-      </div>
-      </body></html>
-    `;
-    const w = window.open("", "_blank");
-    if (w) {
-      w.document.write(printContent);
-      w.document.close();
-      w.print();
-    }
-  }, [items, subtotal, totalTax, totalDiscount, grandTotal, cashReceived, change]);
-
-  const resetForm = useCallback(() => {
+  // Reset form (internal — no toast)
+  const resetFormInternal = useCallback(() => {
     setItems([]);
     setCustomerId("");
     setPaymentMethod("cash");
@@ -474,6 +764,11 @@ export default function POS() {
     setShowQty(false);
     setSelectedProduct(null);
     setEditingCell(null);
+  }, []);
+
+  // Close payment modal handler
+  const handleClosePayment = useCallback(() => {
+    setShowPayment(false);
   }, []);
 
   return (
@@ -492,8 +787,11 @@ export default function POS() {
             <Button onClick={() => setShowPayment(true)} className="nb-btn text-xs">
               <Save className="size-3 mr-1" /> Pay
             </Button>
-            <Button onClick={handlePrint} className="nb-btn-outline text-xs">
+            <Button onClick={handlePrintCurrent} className="nb-btn-outline text-xs">
               <Printer className="size-3 mr-1" /> Print
+            </Button>
+            <Button onClick={() => setShowHistory(!showHistory)} className="nb-btn-outline text-xs">
+              <History className="size-3 mr-1" /> History
             </Button>
           </div>
         </div>
@@ -513,6 +811,56 @@ export default function POS() {
                     Resume
                   </Button>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sale History (reprint) */}
+        {showHistory && (
+          <Card className="nb-card-sm">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase">Recent Sales</span>
+                <button onClick={() => setShowHistory(false)} className="text-xs text-muted-foreground hover:text-foreground">
+                  Close
+                </button>
+              </div>
+              <div className="max-h-48 overflow-auto">
+                {saleList && saleList.length > 0 ? (
+                  <table className="nb-table text-[10px]">
+                    <thead>
+                      <tr>
+                        <th>Invoice</th>
+                        <th>Date</th>
+                        <th className="text-right">Total</th>
+                        <th>Payment</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {saleList.slice(0, 20).map((sale) => (
+                        <tr key={sale._id}>
+                          <td className="font-mono">{sale.invoiceNumber}</td>
+                          <td>{sale.date}</td>
+                          <td className="text-right">PKR {sale.totalAmount.toFixed(2)}</td>
+                          <td>{sale.paymentMethod}</td>
+                          <td>
+                            <button
+                              onClick={() => handleReprint(sale)}
+                              className="text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1"
+                              title="Reprint receipt"
+                            >
+                              <Printer className="size-3" /> Print
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-4">No sales yet.</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -836,11 +1184,11 @@ export default function POS() {
 
       {/* Payment Modal */}
       {showPayment && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPayment(false); }}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) handleClosePayment(); }}>
           <Card className="nb-card w-full max-w-md mx-4">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-bold uppercase">Complete Payment</CardTitle>
-              <button onClick={() => setShowPayment(false)} className="p-1 hover:bg-muted">
+              <button onClick={handleClosePayment} className="p-1 hover:bg-muted">
                 <X className="size-4" />
               </button>
             </CardHeader>
@@ -876,11 +1224,11 @@ export default function POS() {
                 </div>
               )}
               <div className="flex gap-2">
-                <Button onClick={() => handleSave()} className="nb-btn flex-1 text-sm py-3">
-                  <Banknote className="size-4 mr-2" /> Save & Print
+                <Button onClick={() => handleSave(true)} className="nb-btn flex-1 text-sm py-3">
+                  <Printer className="size-4 mr-2" /> Save & Print
                 </Button>
-                <Button onClick={() => handleSave()} variant="outline" className="nb-btn-outline text-sm">
-                  Save
+                <Button onClick={() => handleSave(false)} variant="outline" className="nb-btn-outline text-sm">
+                  <Save className="size-4 mr-2" /> Save Only
                 </Button>
               </div>
             </CardContent>

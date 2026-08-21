@@ -183,6 +183,7 @@ const schema = defineSchema(
       changeReturned: v.optional(v.number()),
       status: v.string(),
       notes: v.optional(v.string()),
+      items: v.optional(v.any()),
       createdBy: v.optional(v.id("users")),
       createdAt: v.number(),
       updatedAt: v.number(),
