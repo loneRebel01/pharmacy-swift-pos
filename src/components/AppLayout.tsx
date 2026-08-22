@@ -41,9 +41,22 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [appName, setAppName] = useState(() => localStorage.getItem("app_name") || "Free Buff Pharmacy");
+  const [appLogo, setAppLogo] = useState(() => localStorage.getItem("app_logo") || "");
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+
+  // Sync branding when localStorage changes (e.g. after saving in Settings)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const name = localStorage.getItem("app_name") || "Free Buff Pharmacy";
+      const logo = localStorage.getItem("app_logo") || "";
+      setAppName((prev) => (prev !== name ? name : prev));
+      setAppLogo((prev) => (prev !== logo ? logo : prev));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -99,16 +112,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="flex items-center justify-between p-3 border-b-2 border-border">
           {sidebarOpen ? (
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-accent border-2 border-border flex items-center justify-center font-bold text-sm">
-                FB
+            <Link to="/dashboard" className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-accent border-2 border-border flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                {appLogo ? (
+                  <img src={appLogo} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  appName.split(" ").map((w) => w[0]).slice(0, 2).join("") || "FB"
+                )}
               </div>
-              <span className="font-bold text-sm">Free Buff Pharmacy</span>
+              <span className="font-bold text-sm truncate">{appName}</span>
             </Link>
           ) : (
             <Link to="/dashboard" className="flex justify-center w-full">
-              <div className="w-8 h-8 bg-accent border-2 border-border flex items-center justify-center font-bold text-sm">
-                FB
+              <div className="w-8 h-8 bg-accent border-2 border-border flex items-center justify-center font-bold text-sm overflow-hidden">
+                {appLogo ? (
+                  <img src={appLogo} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  appName.split(" ").map((w) => w[0]).slice(0, 2).join("") || "FB"
+                )}
               </div>
             </Link>
           )}

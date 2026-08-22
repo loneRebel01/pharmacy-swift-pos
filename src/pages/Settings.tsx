@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Save } from "lucide-react";
+import { Settings as SettingsIcon, Save, Upload, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -10,12 +10,30 @@ export default function Settings() {
   const [phone, setPhone] = useState(() => localStorage.getItem("pharmacy_phone") || "0300-1234567");
   const [address, setAddress] = useState(() => localStorage.getItem("pharmacy_address") || "Main Street, City");
   const [receiptWidth, setReceiptWidth] = useState(() => localStorage.getItem("receipt_width") || "80mm");
+  const [appName, setAppName] = useState(() => localStorage.getItem("app_name") || "Free Buff Pharmacy");
+  const [appLogo, setAppLogo] = useState(() => localStorage.getItem("app_logo") || "");
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      toast.error("Logo must be under 500KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAppLogo(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = () => {
     localStorage.setItem("pharmacy_name", pharmacyName);
     localStorage.setItem("pharmacy_phone", phone);
     localStorage.setItem("pharmacy_address", address);
     localStorage.setItem("receipt_width", receiptWidth);
+    localStorage.setItem("app_name", appName);
+    localStorage.setItem("app_logo", appLogo);
     toast.success("Settings saved");
   };
 
@@ -24,6 +42,51 @@ export default function Settings() {
       <h1 className="text-2xl font-bold flex items-center gap-2">
         <SettingsIcon className="size-6" /> Settings
       </h1>
+
+      <Card className="nb-card">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xs font-bold uppercase">Application Branding</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <label className="text-xs font-bold">Application Name</label>
+            <Input
+              value={appName}
+              onChange={(e) => setAppName(e.target.value)}
+              placeholder="Free Buff Pharmacy"
+              className="nb-input text-sm mt-1"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Shown in the top-left sidebar area</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold">Logo</label>
+            <div className="flex items-center gap-3 mt-1">
+              <div className="w-10 h-10 bg-accent border-2 border-border flex items-center justify-center font-bold text-sm shrink-0">
+                {appLogo ? (
+                  <img src={appLogo} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  "FB"
+                )}
+              </div>
+              <div className="flex gap-2">
+                <label className="nb-btn-outline text-xs cursor-pointer inline-flex items-center gap-1">
+                  <Upload className="size-3" /> Upload Logo
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                </label>
+                {appLogo && (
+                  <button
+                    onClick={() => setAppLogo("")}
+                    className="nb-btn-outline text-xs inline-flex items-center gap-1 text-destructive"
+                  >
+                    <X className="size-3" /> Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Square image recommended. Max 500KB. If empty, shows initials.</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="nb-card">
         <CardHeader className="pb-2">
