@@ -126,7 +126,7 @@ export default function Purchases() {
   } | null>(null);
   const [editValue, setEditValue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
-  const editHandledRef = useRef(false);
+  const committedRef = useRef(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
@@ -384,11 +384,16 @@ export default function Purchases() {
   const handleCellClick = useCallback(
     (rowIdx: number, colIdx: number) => {
       if (!TABLE_COLS[colIdx].editable) return;
+      // Commit pending edit first
+      if (editingCell) {
+        updateItemField(editingCell.row, TABLE_COLS[editingCell.col].key, editValue);
+      }
+      committedRef.current = true;
       setSelectedCell({ row: rowIdx, col: colIdx });
       setEditingCell({ row: rowIdx, col: colIdx });
       setEditValue(getCellValue(items[rowIdx], TABLE_COLS[colIdx].key));
     },
-    [items, getCellValue]
+    [items, getCellValue, editingCell, editValue, updateItemField]
   );
 
   /* ────────── Keyboard handler for editing input ────────── */
@@ -397,11 +402,13 @@ export default function Purchases() {
       if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
-        editHandledRef.current = true;
+        committedRef.current = true;
         updateItemField(rowIdx, TABLE_COLS[colIdx].key, editValue);
         // Move to next row, same column
         if (rowIdx < items.length - 1) {
-          setEditingCell({ row: rowIdx + 1, col: colIdx });
+          const nextRow = rowIdx + 1;
+          setSelectedCell({ row: nextRow, col: colIdx });
+          setEditingCell({ row: nextRow, col: colIdx });
           setEditValue(
             getCellValue(items[rowIdx + 1], TABLE_COLS[colIdx].key)
           );
@@ -412,18 +419,19 @@ export default function Purchases() {
       } else if (e.key === "Tab") {
         e.preventDefault();
         e.stopPropagation();
-        editHandledRef.current = true;
+        committedRef.current = true;
         updateItemField(rowIdx, TABLE_COLS[colIdx].key, editValue);
         const nextCol = findNextEditableCol(
           colIdx,
           e.shiftKey ? -1 : 1
         );
+        setSelectedCell({ row: rowIdx, col: nextCol });
         setEditingCell({ row: rowIdx, col: nextCol });
         setEditValue(getCellValue(items[rowIdx], TABLE_COLS[nextCol].key));
       } else if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        editHandledRef.current = true;
+        committedRef.current = true;
         setEditingCell(null);
         setEditValue("");
         searchRef.current?.focus();
@@ -1268,8 +1276,8 @@ export default function Purchases() {
                                   handleEditKeyDown(e, rowIdx, colIdx)
                                 }
                                 onBlur={() => {
-                                  if (editHandledRef.current) {
-                                    editHandledRef.current = false;
+                                  if (committedRef.current) {
+                                    committedRef.current = false;
                                     return;
                                   }
                                   if (editingCell) {
