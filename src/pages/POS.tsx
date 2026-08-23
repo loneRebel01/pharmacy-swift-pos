@@ -328,6 +328,13 @@ export default function POS() {
   const [showHistory, setShowHistory] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
 
+  // Payment verification state
+  const [showVerify, setShowVerify] = useState(false);
+  const [verifyAction, setVerifyAction] = useState<"print" | "save">("save");
+  const [verifyUser, setVerifyUser] = useState("");
+  const [verifyPass, setVerifyPass] = useState("");
+  const [verifyError, setVerifyError] = useState(false);
+
   // Cell editing state
   const [editingCell, setEditingCell] = useState<{ row: number; col: EditableCol } | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -1231,11 +1238,92 @@ export default function POS() {
                 </div>
               )}
               <div className="flex gap-2">
-                <Button onClick={() => handleSave(true)} className="nb-btn flex-1 text-sm py-3">
+                <Button onClick={() => { setVerifyAction("print"); setVerifyUser(""); setVerifyPass(""); setVerifyError(false); setShowVerify(true); }} className="nb-btn flex-1 text-sm py-3">
                   <Printer className="size-4 mr-2" /> Save & Print
                 </Button>
-                <Button onClick={() => handleSave(false)} variant="outline" className="nb-btn-outline text-sm">
+                <Button onClick={() => { setVerifyAction("save"); setVerifyUser(""); setVerifyPass(""); setVerifyError(false); setShowVerify(true); }} variant="outline" className="nb-btn-outline text-sm">
                   <Save className="size-4 mr-2" /> Save Only
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showVerify && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center">
+          <Card className="nb-card w-full max-w-xs mx-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold uppercase">Verify Credentials</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {verifyError && (
+                <div className="text-xs font-bold text-red-600 bg-red-50 border-2 border-red-300 p-2">
+                  Invalid username or password.
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-bold">Username</label>
+                <Input
+                  value={verifyUser}
+                  onChange={(e) => { setVerifyUser(e.target.value); setVerifyError(false); }}
+                  className="nb-input text-sm mt-1"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const passEl = (e.target as HTMLElement).parentElement?.querySelector<HTMLInputElement>("input:nth-of-type(2)");
+                      passEl?.focus();
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold">Password</label>
+                <Input
+                  type="password"
+                  value={verifyPass}
+                  onChange={(e) => { setVerifyPass(e.target.value); setVerifyError(false); }}
+                  className="nb-input text-sm mt-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      if (verifyUser === "1" && verifyPass === "1") {
+                        setShowVerify(false);
+                        setShowPayment(false);
+                        handleSave(verifyAction === "print");
+                      } else {
+                        setVerifyError(true);
+                        setVerifyUser("");
+                        setVerifyPass("");
+                      }
+                    } else if (e.key === "Escape") {
+                      setShowVerify(false);
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    if (verifyUser === "1" && verifyPass === "1") {
+                      setShowVerify(false);
+                      setShowPayment(false);
+                      handleSave(verifyAction === "print");
+                    } else {
+                      setVerifyError(true);
+                      setVerifyUser("");
+                      setVerifyPass("");
+                    }
+                  }}
+                  className="nb-btn flex-1 text-xs"
+                >
+                  Verify
+                </Button>
+                <Button
+                  onClick={() => setShowVerify(false)}
+                  variant="outline"
+                  className="nb-btn-outline text-xs"
+                >
+                  Cancel
                 </Button>
               </div>
             </CardContent>
