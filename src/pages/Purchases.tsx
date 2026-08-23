@@ -371,7 +371,10 @@ export default function Purchases() {
   const findNextEditableCol = useCallback(
     (currentCol: number, direction: number): number => {
       let idx = EDITABLE_INDICES.indexOf(currentCol);
-      if (idx < 0) idx = direction > 0 ? 0 : EDITABLE_INDICES.length - 1;
+      if (idx < 0) {
+        // Starting from invalid position — return first or last editable col
+        return direction > 0 ? EDITABLE_INDICES[0] : EDITABLE_INDICES[EDITABLE_INDICES.length - 1];
+      }
       let next = idx + direction;
       if (next >= EDITABLE_INDICES.length) next = 0;
       if (next < 0) next = EDITABLE_INDICES.length - 1;
@@ -404,17 +407,21 @@ export default function Purchases() {
         e.stopPropagation();
         committedRef.current = true;
         updateItemField(rowIdx, TABLE_COLS[colIdx].key, editValue);
-        // Move to next row, same column
-        if (rowIdx < items.length - 1) {
-          const nextRow = rowIdx + 1;
-          setSelectedCell({ row: nextRow, col: colIdx });
-          setEditingCell({ row: nextRow, col: colIdx });
-          setEditValue(
-            getCellValue(items[rowIdx + 1], TABLE_COLS[colIdx].key)
-          );
+        // Tab-style navigation: move to next editable column, wrap to next row
+        const nextCol = findNextEditableCol(colIdx, 1);
+        if (nextCol > colIdx) {
+          setSelectedCell({ row: rowIdx, col: nextCol });
+          setEditingCell({ row: rowIdx, col: nextCol });
+          setEditValue(getCellValue(items[rowIdx], TABLE_COLS[nextCol].key));
+        } else if (rowIdx < items.length - 1) {
+          const firstEditable = findNextEditableCol(-1, 1);
+          setSelectedCell({ row: rowIdx + 1, col: firstEditable });
+          setEditingCell({ row: rowIdx + 1, col: firstEditable });
+          setEditValue(getCellValue(items[rowIdx + 1], TABLE_COLS[firstEditable].key));
         } else {
           setEditingCell(null);
           setEditValue("");
+          searchRef.current?.focus();
         }
       } else if (e.key === "Tab") {
         e.preventDefault();

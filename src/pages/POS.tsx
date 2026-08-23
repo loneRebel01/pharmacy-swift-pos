@@ -465,6 +465,15 @@ export default function POS() {
       e.preventDefault();
       e.stopPropagation();
       commitEdit();
+      // Tab-style navigation: move to next editable field
+      const colIdx = editableCols.indexOf(col);
+      if (colIdx < editableCols.length - 1) {
+        setTimeout(() => startEditing(row, editableCols[colIdx + 1]), 0);
+      } else if (row < items.length - 1) {
+        setTimeout(() => startEditing(row + 1, editableCols[0]), 0);
+      } else {
+        searchRef.current?.focus();
+      }
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
