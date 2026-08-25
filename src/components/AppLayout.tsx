@@ -18,6 +18,7 @@ import {
   ArrowUpCircle,
   HelpCircle,
   RotateCcw,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -27,6 +28,7 @@ const navItems = [
   { path: "/dashboard/purchases", label: "Purchases", icon: ShoppingCart, key: "F9" },
   { path: "/dashboard/pos", label: "POS / Sales", icon: ShoppingCartIcon, key: "F10" },
   { path: "/dashboard/returns", label: "Returns", icon: RotateCcw, key: "" },
+  { path: "/dashboard/purchase-orders", label: "Purchase Orders", icon: FileText, key: "" },
   { path: "/dashboard/customers", label: "Customers", icon: Users, key: "F6" },
   { path: "/dashboard/suppliers", label: "Suppliers", icon: Building2, key: "F7" },
   { path: "/dashboard/inventory", label: "Inventory", icon: ClipboardList, key: "F8" },

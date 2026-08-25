@@ -292,6 +292,45 @@ const schema = defineSchema(
     })
       .index("by_return", ["returnId"])
       .index("by_product", ["productId"]),
+
+    purchaseOrders: defineTable({
+      poNumber: v.string(),
+      date: v.string(),
+      supplierId: v.optional(v.id("suppliers")),
+      poCategory: v.optional(v.string()),
+      projectionDays: v.optional(v.number()),
+      fromDate: v.optional(v.string()),
+      toDate: v.optional(v.string()),
+      totalAmount: v.number(),
+      status: v.string(),
+      notes: v.optional(v.string()),
+      createdBy: v.optional(v.id("users")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_date", ["date"])
+      .index("by_supplier", ["supplierId"])
+      .index("by_status", ["status"])
+      .index("by_poNumber", ["poNumber"]),
+
+    purchaseOrderItems: defineTable({
+      poId: v.id("purchaseOrders"),
+      productId: v.id("products"),
+      productName: v.string(),
+      soldQty: v.number(),
+      stockInHand: v.number(),
+      requiredPacks: v.number(),
+      customerDemand: v.number(),
+      packSize: v.optional(v.number()),
+      purchasePrice: v.number(),
+      discount: v.optional(v.number()),
+      minQty: v.optional(v.number()),
+      bonusQty: v.optional(v.number()),
+      netAmount: v.number(),
+      manufacturer: v.optional(v.string()),
+    })
+      .index("by_po", ["poId"])
+      .index("by_product", ["productId"]),
   },
   {
     schemaValidation: false,
