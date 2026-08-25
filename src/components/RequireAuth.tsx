@@ -2,10 +2,17 @@ import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
+import { useState, useCallback } from "react";
+import LoginScreen from "@/components/LoginScreen";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated } = useAuth();
   const location = useLocation();
+  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem("app_logged_in") === "true");
+
+  const handleLogin = useCallback(() => {
+    setLoggedIn(true);
+  }, []);
 
   if (isLoading) {
     return (
@@ -23,6 +30,10 @@ export function RequireAuth({ children }: { children: ReactNode }) {
         replace
       />
     );
+  }
+
+  if (!loggedIn) {
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   return children;

@@ -13,6 +13,7 @@ import {
   X,
   FolderOpen,
   Search,
+  Printer,
 } from "lucide-react";
 
 interface POItem {
@@ -307,6 +308,120 @@ export default function PurchaseOrderPage() {
     }
   }, [items, poNumber, date, supplierId, poCategory, projectionDays, fromDate, toDate, totalAmount, currentOrderId, createOrder, updateOrder]);
 
+  // ────── Print ──────
+  const handlePrint = useCallback(() => {
+    if (items.length === 0) {
+      toast.error("No items to print");
+      return;
+    }
+    const pharmacyName = localStorage.getItem("pharmacy_name") || "Free Buff Pharmacy";
+    const pharmacyPhone = localStorage.getItem("pharmacy_phone") || "";
+    const pharmacyAddress = localStorage.getItem("pharmacy_address") || "";
+    const receiptWidth = localStorage.getItem("receipt_width") || "A4";
+    const supplierName = suppliers?.find((s: any) => s._id === supplierId)?.name || "N/A";
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Purchase Order ${poNumber}</title>
+        <style>
+          @page { size: ${receiptWidth === 'A4' ? 'A4' : receiptWidth}; margin: 10mm; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Courier New', monospace; font-size: 12px; color: #000; }
+          .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; }
+          .header h1 { font-size: 18px; font-weight: bold; }
+          .header p { font-size: 11px; margin-top: 2px; }
+          .info { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 11px; }
+          .info div { flex: 1; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          th { background: #f0f0f0; border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+          td { border: 1px solid #000; padding: 4px 6px; font-size: 10px; }
+          .text-right { text-align: right; }
+          .total-row td { font-weight: bold; border-top: 2px solid #000; font-size: 12px; }
+          .footer { margin-top: 20px; border-top: 1px solid #000; padding-top: 10px; font-size: 10px; }
+          .signatures { display: flex; justify-content: space-between; margin-top: 40px; }
+          .sig-line { width: 40%; border-top: 1px solid #000; padding-top: 5px; font-size: 10px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${pharmacyName}</h1>
+          ${pharmacyAddress ? `<p>${pharmacyAddress}</p>` : ''}
+          ${pharmacyPhone ? `<p>Phone: ${pharmacyPhone}</p>` : ''}
+          <h2 style="margin-top:8px;font-size:14px;">PURCHASE ORDER</h2>
+        </div>
+        <div class="info">
+          <div><strong>PO No:</strong> ${poNumber}</div>
+          <div><strong>Date:</strong> ${date}</div>
+          <div><strong>Category:</strong> ${poCategory || 'N/A'}</div>
+        </div>
+        <div class="info">
+          <div><strong>Supplier:</strong> ${supplierName}</div>
+          <div><strong>Projection:</strong> ${projectionDays} days</div>
+          <div><strong>Period:</strong> ${fromDate} to ${toDate}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Product</th>
+              <th class="text-right">Sold Qty</th>
+              <th class="text-right">Stock</th>
+              <th class="text-right">Req. Pkts</th>
+              <th class="text-right">Pkt Size</th>
+              <th class="text-right">Pur. Price</th>
+              <th class="text-right">Disc%</th>
+              <th class="text-right">Net Amt</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${item.productName}</td>
+                <td class="text-right">${item.soldQty}</td>
+                <td class="text-right">${item.stockInHand}</td>
+                <td class="text-right">${item.requiredPacks}</td>
+                <td class="text-right">${item.packSize}</td>
+                <td class="text-right">Rs ${item.purchasePrice.toFixed(2)}</td>
+                <td class="text-right">${item.discount}%</td>
+                <td class="text-right">Rs ${item.netAmount.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+            <tr class="total-row">
+              <td colspan="8" class="text-right">TOTAL</td>
+              <td class="text-right">Rs ${totalAmount.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="signatures">
+          <div class="sig-line">Authorized By</div>
+          <div class="sig-line">Supplier Signature</div>
+        </div>
+      </body>
+      </html>
+    `;
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-9999px';
+    iframe.style.left = '-9999px';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(receiptHTML);
+      doc.close();
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+      }, 300);
+    } else {
+      toast.error('Could not generate print preview');
+      document.body.removeChild(iframe);
+    }
+  }, [items, poNumber, date, fromDate, toDate, projectionDays, supplierId, poCategory, totalAmount, suppliers]);
+
   // ────── New ──────
   const handleNew = useCallback(() => {
     setPoNumber(`PO-${Date.now()}`);
@@ -412,6 +527,9 @@ export default function PurchaseOrderPage() {
           </Button>
           <Button size="sm" className="nb-btn nb-btn-primary" onClick={handleSave}>
             <Save className="size-3 mr-1" /> Save
+          </Button>
+          <Button size="sm" variant="outline" className="nb-btn" onClick={handlePrint}>
+            <Printer className="size-3 mr-1" /> Print
           </Button>
           <Button size="sm" variant="outline" className="nb-btn" onClick={handleNew}>
             <X className="size-3 mr-1" /> Exit

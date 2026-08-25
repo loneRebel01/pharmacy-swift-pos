@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Save, Upload, X } from "lucide-react";
+import { Settings as SettingsIcon, Save, Upload, X, Shield } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +12,8 @@ export default function Settings() {
   const [receiptWidth, setReceiptWidth] = useState(() => localStorage.getItem("receipt_width") || "80mm");
   const [appName, setAppName] = useState(() => localStorage.getItem("app_name") || "Free Buff Pharmacy");
   const [appLogo, setAppLogo] = useState(() => localStorage.getItem("app_logo") || "");
+  const [loginUser, setLoginUser] = useState(() => localStorage.getItem("login_username") || "admin");
+  const [loginPass, setLoginPass] = useState(() => localStorage.getItem("login_password") || "admin123");
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,6 +36,8 @@ export default function Settings() {
     localStorage.setItem("receipt_width", receiptWidth);
     localStorage.setItem("app_name", appName);
     localStorage.setItem("app_logo", appLogo);
+    localStorage.setItem("login_username", loginUser);
+    localStorage.setItem("login_password", loginPass);
     toast.success("Settings saved");
   };
 
@@ -103,6 +107,28 @@ export default function Settings() {
               <option value="80mm">80mm Thermal</option>
               <option value="A4">A4 Paper</option>
             </select>
+          </div>
+          <Button onClick={handleSave} className="nb-btn text-xs mt-2">
+            <Save className="size-3 mr-1" /> Save Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="nb-card">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xs font-bold uppercase flex items-center gap-1">
+            <Shield className="size-3" /> Login Credentials
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <label className="text-xs font-bold">Username</label>
+            <Input value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="nb-input text-sm mt-1" />
+            <p className="text-[10px] text-muted-foreground mt-1">Required to sign in on next startup</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold">Password</label>
+            <Input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="nb-input text-sm mt-1" />
           </div>
           <Button onClick={handleSave} className="nb-btn text-xs mt-2">
             <Save className="size-3 mr-1" /> Save Settings
